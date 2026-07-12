@@ -9,6 +9,9 @@ tracker, not a dashboard — a coach. You only ever do two things:
 The AI owns everything else: where you are on the roadmap, what to introduce
 next, what to review, and when each problem should come back.
 
+See [VISION.md](VISION.md) for the long-term product vision and how today's MVP
+maps to it.
+
 ```
 $ leetcode-coach plan 45
 
