@@ -35,6 +35,41 @@ class Plan:
     def total_minutes(self) -> int:
         return sum(i.estimated_minutes for i in self.items)
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "focus": self.focus,
+            "coach_note": self.coach_note,
+            "items": [
+                {
+                    "title": i.title,
+                    "kind": i.kind,
+                    "difficulty": i.difficulty,
+                    "topic": i.topic,
+                    "estimated_minutes": i.estimated_minutes,
+                    "reason": i.reason,
+                }
+                for i in self.items
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> Plan:
+        return cls(
+            focus=raw.get("focus", "balanced"),
+            coach_note=raw.get("coach_note", ""),
+            items=[
+                PlanItem(
+                    title=i["title"],
+                    kind=i.get("kind", "new"),
+                    difficulty=i.get("difficulty", ""),
+                    topic=i.get("topic", ""),
+                    estimated_minutes=int(i.get("estimated_minutes", 0)),
+                    reason=i.get("reason", ""),
+                )
+                for i in raw.get("items", [])
+            ],
+        )
+
 
 class Coach:
     def __init__(self, store: Store | None = None, today: date | None = None):
@@ -191,6 +226,41 @@ class Coach:
             "applied": applied,
             "unmatched": raw.get("unmatched", []),
             "coach_note": raw.get("coach_note", ""),
+        }
+
+    def record_attempt(
+        self,
+        title: str,
+        outcome: str,
+        minutes: int | None = None,
+        used_hint: bool = False,
+        viewed_solution: bool = False,
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Record a single attempt directly (no LLM) — used for quick check-ins.
+
+        Returns the same per-problem summary shape as :meth:`record_feedback`
+        entries: ``{"title", "outcome", "next_review"}``.
+        """
+        state, roadmap = self._require_state()
+        prob = roadmap.by_title(title)
+        if prob is None:
+            raise KeyError(f"Unknown problem: {title!r}")
+        attempt = Attempt(
+            date=self.today.isoformat(),
+            minutes=minutes,
+            outcome=outcome,
+            used_hint=used_hint,
+            viewed_solution=viewed_solution,
+            notes=notes,
+        )
+        record = state.record_for(prob.title, prob.topic)
+        review.apply_attempt(record, attempt, self.today)
+        self.store.save(state)
+        return {
+            "title": prob.title,
+            "outcome": attempt.outcome,
+            "next_review": record.next_review,
         }
 
     # ---- progress summary (lightweight dashboard) ----------------------- #

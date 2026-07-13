@@ -96,6 +96,21 @@ class Store:
     def exists(self) -> bool:
         return self.path.exists()
 
+    # The most recent daily plan is cached beside the state so `done` (CLI)
+    # and the webapp can both reference what was planned.
+    @property
+    def plan_cache_path(self) -> Path:
+        return self.path.parent / "last_plan.json"
+
+    def load_plan_cache(self) -> dict[str, Any] | None:
+        if not self.plan_cache_path.exists():
+            return None
+        return json.loads(self.plan_cache_path.read_text())
+
+    def save_plan_cache(self, payload: dict[str, Any]) -> None:
+        self.plan_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.plan_cache_path.write_text(json.dumps(payload, indent=2))
+
     def load(self) -> State:
         if not self.path.exists():
             return State()

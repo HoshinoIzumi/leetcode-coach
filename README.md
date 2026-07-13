@@ -81,6 +81,47 @@ If you don't want to install, run it as a module: `python -m coach plan 45`.
 Your history lives at `~/.leetcode-coach/state.json` (override with
 `LEETCODE_COACH_HOME` or `--state`).
 
+## Web app
+
+The same coach, in the browser: the daily loop (time → plan → recap), quick
+per-problem check-ins, a progress dashboard, and per-problem history. It is a
+thin FastAPI layer over the same `Coach` class the CLI uses, against the same
+state file — use whichever interface you feel like on a given day.
+
+```bash
+pip install -e '.[web]'
+
+# build the frontend once (rebuild after changing web/src)
+cd web && npm install && npm run build && cd ..
+
+uvicorn coach.api:app --port 8000    # open http://127.0.0.1:8000
+```
+
+For frontend development, run `npm run dev` inside `web/` (it proxies `/api`
+to port 8000) alongside uvicorn.
+
+### Deploying it (personal use)
+
+The included `Dockerfile` builds the frontend and serves everything from one
+container on port 8000. Two things matter when it's reachable from the
+internet:
+
+- **Auth** — set `COACH_TOKEN` to a secret string; every request must then
+  carry it (the web UI asks once and remembers it in the browser).
+- **Persistence** — history lives in `LEETCODE_COACH_HOME` (`/data` in the
+  image); mount a volume there so it survives restarts.
+
+```bash
+docker build -t leetcode-coach .
+docker run -p 8000:8000 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e COACH_TOKEN=some-long-secret \
+  -v coach-data:/data \
+  leetcode-coach
+```
+
+Any single-container host (Fly.io, Railway, Render, a VPS) works as-is.
+
 ## Roadmap (beyond the MVP)
 
 The architecture is built to grow into the full vision without a redesign:

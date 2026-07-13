@@ -14,13 +14,12 @@ the CLI is intentionally tiny:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
 from . import llm
-from .coach import Coach, Plan, PlanItem
+from .coach import Coach, Plan
 from .roadmap import available_roadmaps, load_roadmap
 from .store import Store, default_state_path
 
@@ -55,48 +54,13 @@ def yellow(t: str) -> str:
     return _c(t, "33")
 
 
-def _plan_cache_path(store: Store) -> Path:
-    return store.path.parent / "last_plan.json"
-
-
 def _save_plan(store: Store, plan: Plan) -> None:
-    payload = {
-        "focus": plan.focus,
-        "coach_note": plan.coach_note,
-        "items": [
-            {
-                "title": i.title,
-                "kind": i.kind,
-                "difficulty": i.difficulty,
-                "topic": i.topic,
-                "estimated_minutes": i.estimated_minutes,
-                "reason": i.reason,
-            }
-            for i in plan.items
-        ],
-    }
-    path = _plan_cache_path(store)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2))
+    store.save_plan_cache(plan.to_dict())
 
 
 def _load_plan(store: Store) -> Plan | None:
-    path = _plan_cache_path(store)
-    if not path.exists():
-        return None
-    raw = json.loads(path.read_text())
-    items = [
-        PlanItem(
-            title=i["title"],
-            kind=i["kind"],
-            difficulty=i["difficulty"],
-            topic=i["topic"],
-            estimated_minutes=i["estimated_minutes"],
-            reason=i["reason"],
-        )
-        for i in raw.get("items", [])
-    ]
-    return Plan(focus=raw.get("focus", "balanced"), coach_note=raw.get("coach_note", ""), items=items)
+    raw = store.load_plan_cache()
+    return Plan.from_dict(raw) if raw else None
 
 
 def _parse_minutes(tokens: list[str]) -> int | None:

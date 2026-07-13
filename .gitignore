@@ -9,6 +9,10 @@ dist/
 venv/
 env/
 
+# Node (web frontend)
+node_modules/
+*.tsbuildinfo
+
 # Local coach state (personal learning history — never commit)
 .leetcode-coach/
 state.json
@@ -19,3 +23,6 @@ last_plan.json
 *.swp
 .idea/
 .vscode/
+
+# Claude Code local settings (keep launch.json etc. trackable)
+.claude/settings.local.json
