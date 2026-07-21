@@ -11,12 +11,20 @@ export default function App() {
   const [view, setView] = useState<View>("today");
   const [needsToken, setNeedsToken] = useState(false);
   const [error, setError] = useState("");
+  const [streak, setStreak] = useState(0);
 
   const refresh = useCallback(async () => {
     setError("");
     try {
-      setState(await api.state());
+      const s = await api.state();
+      setState(s);
       setNeedsToken(false);
+      if (s.initialized) {
+        api
+          .activity()
+          .then((a) => setStreak(a.streak))
+          .catch(() => {});
+      }
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         setNeedsToken(true);
@@ -37,6 +45,11 @@ export default function App() {
       <header className="masthead">
         <h1>
           <span className="leaf">●</span> LeetCode Coach
+          {streak > 1 && (
+            <span className="streak-chip">
+              {streak}-day streak
+            </span>
+          )}
         </h1>
         <nav aria-label="Views">
           {(

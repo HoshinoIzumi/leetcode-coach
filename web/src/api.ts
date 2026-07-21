@@ -36,7 +36,18 @@ export interface Progress {
   total: number;
   due_reviews: number;
   by_topic: { topic: string; solved: number; total: number }[];
+  streak: number;
 }
+
+export interface Activity {
+  days: { date: string; count: number }[];
+  streak: number;
+  active_today: boolean;
+}
+
+export type Milestone =
+  | { type: "solved_count"; count: number }
+  | { type: "topic_completed"; topic: string; total: number };
 
 export interface ProblemSummary {
   title: string;
@@ -67,12 +78,16 @@ export interface FeedbackResult {
   applied: { title: string; outcome: string; next_review: string | null }[];
   unmatched: string[];
   coach_note: string;
+  milestones: Milestone[];
+  due_remaining: number;
 }
 
 export interface AttemptResult {
   title: string;
   outcome: string;
   next_review: string | null;
+  milestones: Milestone[];
+  due_remaining: number;
 }
 
 export class ApiError extends Error {
@@ -143,6 +158,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   progress: () => request<Progress>("/api/progress"),
+  activity: () => request<Activity>("/api/activity"),
   problems: () => request<{ problems: ProblemSummary[] }>("/api/problems"),
   problem: (title: string) =>
     request<ProblemDetail>(`/api/problems/${encodeURIComponent(title)}`),

@@ -4,6 +4,7 @@ import {
   AttemptResult,
   FeedbackResult,
   leetcodeUrl,
+  Milestone,
   outcomeLabel,
   Plan,
   PlanItem,
@@ -116,6 +117,27 @@ export default function Today() {
 }
 
 function PlanView({ plan, onReplan }: { plan: Plan; onReplan: () => void }) {
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [due, setDue] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .progress()
+      .then((p) => {
+        if (!cancelled) setDue(p.due_reviews);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onRecorded = (events: Milestone[], dueRemaining: number) => {
+    setMilestones((prev) => [...prev, ...events]);
+    setDue(dueRemaining);
+  };
+
   const total = plan.items.reduce((s, i) => s + i.estimated_minutes, 0);
   const focusLabel =
     plan.focus === "new"
@@ -126,7 +148,23 @@ function PlanView({ plan, onReplan }: { plan: Plan; onReplan: () => void }) {
 
   return (
     <section>
+      {milestones.map((m, i) => (
+        <p className="milestone" key={i}>
+          {m.type === "topic_completed"
+            ? `${m.topic} complete — all ${m.total} problems solved.`
+            : `${m.count} problems solved. That's a real milestone.`}
+        </p>
+      ))}
+
       {plan.coach_note && <p className="coach-note">{plan.coach_note}</p>}
+
+      {due !== null && (
+        <p className={`due-line${due === 0 ? " clear" : ""}`}>
+          {due === 0
+            ? "✓ Review queue clear"
+            : `${due} review${due === 1 ? "" : "s"} due today`}
+        </p>
+      )}
 
       <div className="plan-meta">
         <span>{focusLabel}</span>
@@ -138,17 +176,30 @@ function PlanView({ plan, onReplan }: { plan: Plan; onReplan: () => void }) {
       ) : (
         <ol className="plan-items">
           {plan.items.map((item, i) => (
-            <PlanItemRow key={item.title} item={item} index={i} />
+            <PlanItemRow
+              key={item.title}
+              item={item}
+              index={i}
+              onRecorded={onRecorded}
+            />
           ))}
         </ol>
       )}
 
-      <Recap onReplan={onReplan} />
+      <Recap onReplan={onReplan} onRecorded={onRecorded} />
     </section>
   );
 }
 
-function PlanItemRow({ item, index }: { item: PlanItem; index: number }) {
+function PlanItemRow({
+  item,
+  index,
+  onRecorded,
+}: {
+  item: PlanItem;
+  index: number;
+  onRecorded: (events: Milestone[], dueRemaining: number) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [recorded, setRecorded] = useState<AttemptResult | null>(null);
@@ -168,6 +219,7 @@ function PlanItemRow({ item, index }: { item: PlanItem; index: number }) {
       });
       setRecorded(r);
       setOpen(false);
+      onRecorded(r.milestones, r.due_remaining);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -221,7 +273,13 @@ function PlanItemRow({ item, index }: { item: PlanItem; index: number }) {
   );
 }
 
-function Recap({ onReplan }: { onReplan: () => void }) {
+function Recap({
+  onReplan,
+  onRecorded,
+}: {
+  onReplan: () => void;
+  onRecorded: (events: Milestone[], dueRemaining: number) => void;
+}) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<FeedbackResult | null>(null);
@@ -232,8 +290,10 @@ function Recap({ onReplan }: { onReplan: () => void }) {
     setBusy(true);
     setError("");
     try {
-      setResult(await api.feedback(text.trim()));
+      const r = await api.feedback(text.trim());
+      setResult(r);
       setText("");
+      onRecorded(r.milestones, r.due_remaining);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

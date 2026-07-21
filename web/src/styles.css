@@ -79,6 +79,21 @@ a:focus-visible {
   color: var(--accent);
 }
 
+.streak-chip {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  margin-left: 0.6rem;
+  vertical-align: 0.15em;
+  white-space: nowrap;
+}
+
 .masthead nav {
   display: flex;
   gap: 0.25rem;
@@ -115,6 +130,29 @@ a:focus-visible {
   font-size: 1.1rem;
   color: var(--ink-soft);
   font-style: italic;
+}
+
+.milestone {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 10px;
+  padding: 0.75rem 1.1rem;
+  margin-bottom: 1.1rem;
+  animation: rise 0.5s ease both;
+}
+
+.due-line {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--medium);
+  margin-top: 0.9rem;
+}
+
+.due-line.clear {
+  color: var(--accent);
 }
 
 /* ---- today: ask ----------------------------------------------------------- */
@@ -471,6 +509,33 @@ a:focus-visible {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+.heatmap {
+  display: flex;
+  gap: 3px;
+  animation: rise 0.5s ease both;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.heatmap-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2.5px;
+  background: var(--paper-raised);
+  flex-shrink: 0;
+}
+
+.heatmap-cell.level-1 { background: #c4d9cb; }
+.heatmap-cell.level-2 { background: #7fae91; }
+.heatmap-cell.level-3 { background: var(--accent); }
+.heatmap-cell.level-future { background: transparent; }
 
 .topics {
   border-top: 1px solid var(--line);

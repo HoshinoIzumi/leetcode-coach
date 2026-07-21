@@ -6,8 +6,9 @@ needs, calls it, and writes the results back to the store.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from . import llm, review
@@ -69,6 +70,10 @@ class Plan:
                 for i in raw.get("items", [])
             ],
         )
+
+
+# Solved-count thresholds that earn a milestone moment.
+_SOLVED_MILESTONES = [10, 25, 50, 75, 100, 125, 150]
 
 
 class Coach:
@@ -183,9 +188,11 @@ class Coach:
         """Parse the user's recap, update history + schedule, and persist.
 
         Returns a summary dict the CLI can render:
-        ``{"applied": [...], "unmatched": [...], "coach_note": str}``.
+        ``{"applied": [...], "unmatched": [...], "coach_note": str,
+        "milestones": [...], "due_remaining": int}``.
         """
         state, roadmap = self._require_state()
+        solved_before = _solved_titles(state, roadmap)
 
         reference = {
             "todays_plan": (
@@ -226,6 +233,10 @@ class Coach:
             "applied": applied,
             "unmatched": raw.get("unmatched", []),
             "coach_note": raw.get("coach_note", ""),
+            "milestones": _detect_milestones(
+                roadmap, solved_before, _solved_titles(state, roadmap)
+            ),
+            "due_remaining": self._due_count(state, roadmap),
         }
 
     def record_attempt(
@@ -246,6 +257,7 @@ class Coach:
         prob = roadmap.by_title(title)
         if prob is None:
             raise KeyError(f"Unknown problem: {title!r}")
+        solved_before = _solved_titles(state, roadmap)
         attempt = Attempt(
             date=self.today.isoformat(),
             minutes=minutes,
@@ -261,7 +273,45 @@ class Coach:
             "title": prob.title,
             "outcome": attempt.outcome,
             "next_review": record.next_review,
+            "milestones": _detect_milestones(
+                roadmap, solved_before, _solved_titles(state, roadmap)
+            ),
+            "due_remaining": self._due_count(state, roadmap),
         }
+
+    # ---- activity & streak (motivation) --------------------------------- #
+
+    def activity(self) -> dict[str, Any]:
+        """Per-day practice counts plus the current daily streak."""
+        state, _ = self._require_state()
+        counts = _daily_counts(state)
+        return {
+            "days": [
+                {"date": d, "count": c} for d, c in sorted(counts.items())
+            ],
+            "streak": self._streak(counts),
+            "active_today": counts.get(self.today.isoformat(), 0) > 0,
+        }
+
+    def _streak(self, counts: Counter[str]) -> int:
+        """Consecutive practice days ending today (or yesterday, so an unbroken
+        streak isn't shown as 0 before today's session)."""
+        day = self.today
+        if counts.get(day.isoformat(), 0) == 0:
+            day -= timedelta(days=1)
+        streak = 0
+        while counts.get(day.isoformat(), 0) > 0:
+            streak += 1
+            day -= timedelta(days=1)
+        return streak
+
+    def _due_count(self, state: State, roadmap: Roadmap) -> int:
+        return sum(
+            1
+            for p in roadmap.problems
+            if (rec := state.records.get(p.title))
+            and review.is_due(rec, self.today)
+        )
 
     # ---- progress summary (lightweight dashboard) ----------------------- #
 
@@ -299,6 +349,7 @@ class Coach:
             "total": total,
             "due_reviews": due,
             "by_topic": by_topic,
+            "streak": self._streak(_daily_counts(state)),
         }
 
 
@@ -309,3 +360,40 @@ def _status(state: State, title: str) -> str:
     if rec.solved:
         return "solved"
     return "in_progress"
+
+
+def _daily_counts(state: State) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for rec in state.records.values():
+        for a in rec.attempts:
+            counts[a.date] += 1
+    return counts
+
+
+def _solved_titles(state: State, roadmap: Roadmap) -> set[str]:
+    return {
+        p.title
+        for p in roadmap.problems
+        if (rec := state.records.get(p.title)) and rec.solved
+    }
+
+
+def _detect_milestones(
+    roadmap: Roadmap, before: set[str], after: set[str]
+) -> list[dict[str, Any]]:
+    """Celebration-worthy events caused by this session's updates."""
+    events: list[dict[str, Any]] = []
+    for m in _SOLVED_MILESTONES:
+        if len(before) < m <= len(after):
+            events.append({"type": "solved_count", "count": m})
+    by_topic: dict[str, list[str]] = {}
+    for p in roadmap.problems:
+        by_topic.setdefault(p.topic, []).append(p.title)
+    for topic, titles in by_topic.items():
+        done_now = all(t in after for t in titles)
+        done_before = all(t in before for t in titles)
+        if done_now and not done_before:
+            events.append(
+                {"type": "topic_completed", "topic": topic, "total": len(titles)}
+            )
+    return events

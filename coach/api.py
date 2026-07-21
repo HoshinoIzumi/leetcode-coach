@@ -184,6 +184,12 @@ def create_app(state_path: Path | None = None) -> FastAPI:
         _require_initialized(c)
         return c.progress()
 
+    @app.get("/api/activity")
+    def get_activity() -> dict[str, Any]:
+        c = coach()
+        _require_initialized(c)
+        return c.activity()
+
     @app.get("/api/problems")
     def get_problems() -> dict[str, Any]:
         c = coach()

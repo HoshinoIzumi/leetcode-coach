@@ -216,6 +216,13 @@ def _render_feedback(result: dict) -> None:
             when = dim(f"  → review around {nxt}") if nxt else ""
             print(f"  {green('✓')} {a['title']}  {dim('(' + outcome + ')')}{when}")
         print()
+    for m in result.get("milestones", []):
+        if m["type"] == "topic_completed":
+            print(green(bold(f"🏁 {m['topic']} complete — all {m['total']} problems solved!")))
+        elif m["type"] == "solved_count":
+            print(green(bold(f"🏁 {m['count']} problems solved — milestone reached!")))
+    if result.get("milestones"):
+        print()
     if result.get("coach_note"):
         print(result["coach_note"])
         print()
@@ -241,6 +248,8 @@ def cmd_progress(args: argparse.Namespace) -> int:
     pct = (p["solved"] / p["total"] * 100) if p["total"] else 0
     print(f"  Solved: {green(str(p['solved']))}/{p['total']}  ({pct:.0f}%)")
     print(f"  Attempted: {p['attempted']}/{p['total']}")
+    if p.get("streak"):
+        print(f"  Streak: {green(str(p['streak']))} day{'s' if p['streak'] != 1 else ''}")
     if p["due_reviews"]:
         print(f"  Reviews due: {yellow(str(p['due_reviews']))}")
     print()
